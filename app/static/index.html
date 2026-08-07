@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paires</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #111113;
+      --surface-2: #18181b;
+      --border: #27272a;
+      --border-hover: #3f3f46;
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --faint: #71717a;
+      --accent-dim: rgba(139,92,246,.15);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .row-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color .12s, background .12s;
+    }
+    .row-item:hover { border-color: var(--border-hover); background: var(--surface-2); }
+    .row-item.selected, .row-item.active {
+      border-color: #6d28d9;
+      background: linear-gradient(180deg, rgba(139,92,246,.08), transparent 120%);
+    }
+    .pill {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .02em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+    .btn {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 11px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: opacity .12s;
+    }
+    .btn:hover { opacity: .92; }
+    .btn-ghost { background: var(--surface-2); color: #e4e4e7; border-color: var(--border); }
+    .btn-primary { background: #7c3aed; color: #fff; }
+    .btn-soft { background: var(--accent-dim); color: #c4b5fd; border-color: rgba(139,92,246,.25); }
+    .btn-green { background: rgba(16,185,129,.12); color: #6ee7b7; border-color: rgba(16,185,129,.25); }
+    .btn-red { background: rgba(244,63,94,.1); color: #fda4af; border-color: rgba(244,63,94,.22); }
+    .btn-blue { background: rgba(59,130,246,.12); color: #93c5fd; border-color: rgba(59,130,246,.22); }
+    .stage-matched { background: #27272a; color: #a1a1aa; }
+    .stage-outreach_sent { background: rgba(139,92,246,.18); color: #c4b5fd; }
+    .stage-replied { background: rgba(59,130,246,.18); color: #93c5fd; }
+    .stage-meeting_booked { background: rgba(16,185,129,.15); color: #6ee7b7; }
+    .stage-not_a_fit { background: rgba(244,63,94,.15); color: #fda4af; }
+    .chip {
+      font-size: 11px;
+      color: #d4d4d8;
+      background: #1c1c1f;
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+    .score { font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 500; color: #c4b5fd; }
+    .msg { border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.5; }
+    .msg-founder { background: rgba(139,92,246,.12); border: 1px solid rgba(139,92,246,.22); margin-left: 10%; }
+    .msg-investor { background: #1c1c1f; border: 1px solid var(--border); margin-right: 10%; }
+    .msg-other { border: 1px dashed var(--border); color: var(--muted); }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid #3f3f46;
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin .65s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    textarea, input, select {
+      width: 100%;
+      background: #0c0c0e;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    textarea:focus, input:focus, select:focus { outline: none; border-color: #7c3aed; }
+    #thread-scroll { max-height: 280px; overflow-y: auto; }
+    .col-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 10px;
+    }
+    .modal-bg {
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(4px);
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="max-w-[1280px] mx-auto px-4 sm:px-5 py-5 sm:py-6">
+    <div class="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-800">
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center text-xs font-bold">P</div>
+        <div>
+          <div class="font-semibold text-[15px] tracking-tight">Paires</div>
+          <div class="text-[11px] mono" style="color: var(--faint)">matching · threads · agents</div>
+        </div>
+      </div>
+      <div class="text-[11px] mono px-2.5 py-1 rounded-md border border-zinc-800" style="color: var(--muted)">Founding AI Engineer demo</div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[70vh]">
+      <div class="lg:col-span-3 flex flex-col">
+        <div class="col-label">Founders</div>
+        <div id="founders-list" class="space-y-2 flex-1"></div>
+      </div>
+
+      <div class="lg:col-span-4 flex flex-col">
+        <div class="flex items-center justify-between mb-2.5">
+          <div class="col-label mb-0">Matches</div>
+          <div id="selected-founder" class="text-[11px] truncate max-w-[55%]" style="color: var(--muted)"></div>
+        </div>
+        <div id="matches-list" class="space-y-2 flex-1">
+          <div class="panel p-6 text-center h-full flex flex-col items-center justify-center min-h-[200px]">
+            <div class="text-sm text-zinc-300">Select a founder</div>
+            <div class="text-xs mt-1" style="color: var(--faint)">Ranked investors load here</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-5 flex flex-col">
+        <div class="col-label">Relationship</div>
+        <div id="detail-empty" class="panel p-6 flex-1 flex flex-col items-center justify-center min-h-[320px]">
+          <div class="text-sm text-zinc-300">Open a match</div>
+          <div class="text-xs mt-1 text-center max-w-[220px]" style="color: var(--faint)">Thread, outreach, and research for that investor</div>
+        </div>
+
+        <div id="detail-panel" class="hidden flex-1 flex flex-col gap-3">
+          <div class="panel p-3.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span id="detail-name" class="font-semibold text-sm"></span>
+                  <span id="detail-stage" class="pill stage-matched">Matched</span>
+                </div>
+                <div id="detail-firm" class="text-xs mt-0.5" style="color: var(--muted)"></div>
+                <div id="detail-meeting" class="text-[11px] mt-1.5 hidden" style="color:#6ee7b7"></div>
+              </div>
+              <div class="text-right shrink-0">
+                <div id="detail-score" class="score">—</div>
+              </div>
+            </div>
+            <div id="detail-reasons" class="flex flex-wrap gap-1 mt-2.5"></div>
+            <div class="mt-3 flex flex-wrap gap-1.5">
+              <button class="btn btn-ghost" onclick="runResearch()">Research</button>
+              <button class="btn btn-soft" onclick="runOutreach()">Draft outreach</button>
+              <button class="btn btn-green" onclick="openMeetingModal()">Meeting booked</button>
+              <button class="btn btn-red" onclick="setStage('not_a_fit')">Not a fit</button>
+            </div>
+          </div>
+
+          <div id="agent-panel" class="hidden panel p-3.5">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div id="agent-title" class="text-xs font-semibold"></div>
+              <div class="flex gap-1.5">
+                <button id="btn-send-draft" class="btn btn-primary hidden text-[11px]" onclick="sendDraftToThread()">Send to thread</button>
+                <button class="btn btn-ghost text-[11px]" onclick="closeAgent()">Close</button>
+              </div>
+            </div>
+            <div id="agent-content" class="text-[13px] leading-relaxed" style="color:#d4d4d8"></div>
+          </div>
+
+          <div class="panel p-3.5 flex-1 flex flex-col min-h-[280px]">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-[10px] font-semibold tracking-[0.12em] uppercase" style="color: var(--faint)">Conversation</div>
+              <div class="text-[10px] mono" style="color: var(--faint)">thread</div>
+            </div>
+            <div id="thread-scroll" class="space-y-2 flex-1 mb-3"></div>
+            <div class="flex gap-1.5 mb-2">
+              <button id="mode-outreach" class="btn btn-soft text-[11px]" onclick="setComposeMode('outreach')">Send outreach</button>
+              <button id="mode-reply" class="btn btn-ghost text-[11px]" onclick="setComposeMode('reply')">Log reply</button>
+            </div>
+            <textarea id="compose-body" rows="3" placeholder="Outreach body or investor reply…"></textarea>
+            <div class="flex justify-end mt-2">
+              <button class="btn btn-primary" onclick="sendCompose()">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meeting modal -->
+  <div id="meeting-modal" class="hidden fixed inset-0 modal-bg z-50 flex items-center justify-center p-4">
+    <div class="panel p-5 max-w-md w-full shadow-2xl">
+      <h3 class="font-semibold text-sm mb-1">Book meeting</h3>
+      <p class="text-xs mb-4" style="color: var(--muted)">Stored on the relationship so agents know when and whether a follow-up is expected</p>
+
+      <label class="text-[11px] font-medium" style="color: var(--faint)">Date & time</label>
+      <input id="meeting-at" type="datetime-local" class="mt-1 mb-3" />
+
+      <label class="text-[11px] font-medium" style="color: var(--faint)">Type</label>
+      <select id="meeting-type" class="mt-1 mb-3">
+        <option value="intro">Intro call</option>
+        <option value="follow_up">Follow-up</option>
+        <option value="partner">Partner meeting</option>
+        <option value="other">Other</option>
+      </select>
+
+      <label class="text-[11px] font-medium" style="color: var(--faint)">Notes (optional)</label>
+      <textarea id="meeting-notes" rows="2" class="mt-1 mb-3" placeholder="Agenda, who joins…"></textarea>
+
+      <label class="flex items-center gap-2 text-xs mb-4 cursor-pointer" style="color: var(--muted)">
+        <input id="meeting-followup" type="checkbox" class="w-auto accent-violet-500" />
+        Follow-up expected after this meeting
+      </label>
+
+      <div class="flex justify-end gap-2">
+        <button class="btn btn-ghost" onclick="closeMeetingModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmMeeting()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentFounder = null;
+    let currentMatch = null;
+    let composeMode = 'outreach';
+    let lastDraft = null;
+
+    const STAGE_LABEL = {
+      matched: 'Matched',
+      outreach_sent: 'Outreach sent',
+      replied: 'Replied',
+      meeting_booked: 'Meeting booked',
+      not_a_fit: 'Not a fit'
+    };
+
+    function esc(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function loadFounders() {
+      const box = document.getElementById('founders-list');
+      try {
+        const res = await fetch('/api/founders');
+        if (!res.ok) throw new Error('load failed');
+        const founders = await res.json();
+        box.innerHTML = '';
+        founders.forEach(f => {
+          const el = document.createElement('div');
+          el.className = 'row-item p-3';
+          el.innerHTML = `
+            <div class="text-sm font-medium">${esc(f.name)}</div>
+            <div class="text-xs mt-0.5" style="color: var(--muted)">${esc(f.company)}</div>
+            <div class="mt-2 flex gap-1.5 flex-wrap">
+              <span class="pill" style="background:#27272a;color:#a1a1aa">${esc(f.stage)}</span>
+              <span class="pill" style="background:var(--accent-dim);color:#c4b5fd">${esc(f.sector)}</span>
+            </div>`;
+          el.onclick = () => {
+            document.querySelectorAll('#founders-list .row-item').forEach(n => n.classList.remove('selected'));
+            el.classList.add('selected');
+            selectFounder(f);
+          };
+          box.appendChild(el);
+        });
+      } catch {
+        box.innerHTML = '<div class="text-xs text-rose-300">Failed to load founders</div>';
+      }
+    }
+
+    async function selectFounder(founder) {
+      currentFounder = founder;
+      currentMatch = null;
+      lastDraft = null;
+      document.getElementById('selected-founder').textContent = founder.name;
+      document.getElementById('detail-panel').classList.add('hidden');
+      document.getElementById('detail-empty').classList.remove('hidden');
+      document.getElementById('matches-list').innerHTML = `
+        <div class="panel p-5 flex items-center gap-2 text-xs" style="color: var(--muted)">
+          <span class="spinner"></span> Ranking…
+        </div>`;
+      const res = await fetch(`/api/founders/${founder.id}/matches`);
+      if (!res.ok) {
+        document.getElementById('matches-list').innerHTML =
+          '<div class="panel p-3 text-xs text-rose-300">Failed to load matches</div>';
+        return;
+      }
+      renderMatches(await res.json());
+    }
+
+    function renderMatches(matches) {
+      const list = document.getElementById('matches-list');
+      list.innerHTML = '';
+      if (!matches.length) {
+        list.innerHTML = '<div class="panel p-3 text-xs" style="color: var(--muted)">No matches</div>';
+        return;
+      }
+      matches.forEach((m, i) => {
+        const reasons = (m.reasons || []).slice(0, 2).map(r => `<span class="chip">${esc(r)}</span>`).join('');
+        const el = document.createElement('div');
+        el.className = 'row-item p-3';
+        if (currentMatch && currentMatch.investor_id === m.investor_id) el.classList.add('active');
+        el.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-sm font-medium">${i + 1}. ${esc(m.investor_name)}</span>
+                <span class="pill stage-${esc(m.current_stage || 'matched')}">${STAGE_LABEL[m.current_stage] || m.current_stage}</span>
+              </div>
+              <div class="text-[11px] mt-0.5" style="color: var(--muted)">${esc(m.firm)}</div>
+            </div>
+            <div class="score">${(m.score * 100).toFixed(0)}%</div>
+          </div>
+          <div class="flex flex-wrap gap-1 mt-2">${reasons}</div>`;
+        el.onclick = () => {
+          document.querySelectorAll('#matches-list .row-item').forEach(n => n.classList.remove('active'));
+          el.classList.add('active');
+          openMatch(m);
+        };
+        list.appendChild(el);
+      });
+    }
+
+    function formatMeetingLine(m) {
+      if (!m || m.current_stage !== 'meeting_booked') return '';
+      const parts = [];
+      if (m.meeting_type) parts.push(m.meeting_type.replace('_', ' '));
+      if (m.meeting_at) {
+        const d = new Date(m.meeting_at);
+        parts.push(d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+      }
+      if (m.follow_up_expected) parts.push('follow-up expected');
+      return parts.length ? parts.join(' · ') : 'Meeting booked';
+    }
+
+    async function openMatch(m) {
+      currentMatch = m;
+      lastDraft = null;
+      document.getElementById('detail-empty').classList.add('hidden');
+      document.getElementById('detail-panel').classList.remove('hidden');
+      document.getElementById('agent-panel').classList.add('hidden');
+      document.getElementById('btn-send-draft').classList.add('hidden');
+
+      document.getElementById('detail-name').textContent = m.investor_name;
+      document.getElementById('detail-firm').textContent = m.firm;
+      document.getElementById('detail-score').textContent = `${(m.score * 100).toFixed(1)}%`;
+      const stageEl = document.getElementById('detail-stage');
+      stageEl.className = `pill stage-${m.current_stage || 'matched'}`;
+      stageEl.textContent = STAGE_LABEL[m.current_stage] || m.current_stage;
+      document.getElementById('detail-reasons').innerHTML =
+        (m.reasons || []).map(r => `<span class="chip">${esc(r)}</span>`).join('');
+
+      const meetEl = document.getElementById('detail-meeting');
+      const meetLine = formatMeetingLine(m);
+      if (meetLine) {
+        meetEl.textContent = meetLine;
+        meetEl.classList.remove('hidden');
+      } else {
+        meetEl.classList.add('hidden');
+      }
+
+      setComposeMode('outreach');
+      document.getElementById('compose-body').value = '';
+      await loadThread();
+    }
+
+    async function loadThread() {
+      const box = document.getElementById('thread-scroll');
+      box.innerHTML = '<div class="text-xs flex items-center gap-2" style="color: var(--muted)"><span class="spinner"></span> Loading…</div>';
+      const res = await fetch(`/api/thread/${currentFounder.id}/${currentMatch.investor_id}`);
+      if (!res.ok) {
+        box.innerHTML = '<div class="text-xs text-rose-300">Failed to load thread</div>';
+        return;
+      }
+      const msgs = await res.json();
+      if (!msgs.length) {
+        box.innerHTML = `
+          <div class="text-xs py-6 text-center" style="color: var(--faint)">
+            <div class="mb-1 text-zinc-400">Empty conversation</div>
+            Draft outreach, then send it here. Investor replies land in the same thread.
+          </div>`;
+        return;
+      }
+      box.innerHTML = msgs.map(m => {
+        const isYou = m.sender === 'founder';
+        const isInv = m.sender === 'investor';
+        const cls = isYou ? 'msg-founder' : isInv ? 'msg-investor' : 'msg-other';
+        const who = isYou ? 'You → investor' : isInv ? 'Investor → you' : 'System';
+        const kindLabel = m.kind === 'outreach' ? 'Outreach email'
+          : m.kind === 'reply' ? 'Reply'
+          : m.kind === 'system' ? 'Update'
+          : m.kind;
+        const when = m.created_at
+          ? new Date(m.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : '';
+        return `<div class="msg ${cls}">
+          <div class="flex justify-between gap-2 mb-1.5 text-[10px] mono" style="color: var(--faint)">
+            <span><strong style="color:#a1a1aa">${esc(who)}</strong> · ${esc(kindLabel)}</span>
+            <span>${esc(when)}</span>
+          </div>
+          <div class="whitespace-pre-wrap">${esc(m.body)}</div>
+        </div>`;
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function setComposeMode(mode) {
+      composeMode = mode;
+      document.getElementById('mode-outreach').className = mode === 'outreach' ? 'btn btn-soft text-[11px]' : 'btn btn-ghost text-[11px]';
+      document.getElementById('mode-reply').className = mode === 'reply' ? 'btn btn-blue text-[11px]' : 'btn btn-ghost text-[11px]';
+      document.getElementById('compose-body').placeholder =
+        mode === 'outreach' ? 'Write outreach email body…' : 'Paste investor reply…';
+    }
+
+    async function refreshMatchState() {
+      const mres = await fetch(`/api/founders/${currentFounder.id}/matches`);
+      if (!mres.ok) return;
+      const matches = await mres.json();
+      renderMatches(matches);
+      const updated = matches.find(x => x.investor_id === currentMatch.investor_id);
+      if (updated) {
+        currentMatch = updated;
+        await openMatch(updated);
+      }
+    }
+
+    async function sendCompose() {
+      if (!currentFounder || !currentMatch) return;
+      const body = document.getElementById('compose-body').value.trim();
+      if (!body) return;
+      const isOutreach = composeMode === 'outreach';
+      const res = await fetch('/api/thread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          founder_id: currentFounder.id,
+          investor_id: currentMatch.investor_id,
+          sender: isOutreach ? 'founder' : 'investor',
+          kind: isOutreach ? 'outreach' : 'reply',
+          body,
+          mark_outreach_sent: isOutreach
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showAgent('Error', typeof err.detail === 'string' ? err.detail : 'Failed to send');
+        return;
+      }
+      document.getElementById('compose-body').value = '';
+      await loadThread();
+      await refreshMatchState();
+    }
+
+    function openMeetingModal() {
+      if (!currentMatch) return;
+      document.getElementById('meeting-at').value = '';
+      document.getElementById('meeting-type').value = 'intro';
+      document.getElementById('meeting-notes').value = '';
+      document.getElementById('meeting-followup').checked = false;
+      document.getElementById('meeting-modal').classList.remove('hidden');
+    }
+
+    function closeMeetingModal() {
+      document.getElementById('meeting-modal').classList.add('hidden');
+    }
+
+    async function confirmMeeting() {
+      const raw = document.getElementById('meeting-at').value;
+      if (!raw) {
+        showAgent('Meeting', 'Pick a date and time first.');
+        return;
+      }
+      const meetingAt = new Date(raw).toISOString();
+      const meetingType = document.getElementById('meeting-type').value;
+      const meetingNotes = document.getElementById('meeting-notes').value.trim() || null;
+      const followUp = document.getElementById('meeting-followup').checked;
+
+      const res = await fetch('/api/pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          founder_id: currentFounder.id,
+          investor_id: currentMatch.investor_id,
+          stage: 'meeting_booked',
+          score: currentMatch.score,
+          meeting_at: meetingAt,
+          meeting_type: meetingType,
+          meeting_notes: meetingNotes,
+          follow_up_expected: followUp
+        })
+      });
+      closeMeetingModal();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showAgent('Error', typeof err.detail === 'string' ? err.detail : 'Failed to book meeting');
+        return;
+      }
+      const data = await res.json();
+      showAgent('Meeting booked', `Stage → Meeting booked${data.meeting_at ? '\\nWhen: ' + data.meeting_at : ''}${data.follow_up_expected ? '\\nFollow-up expected' : ''}`);
+      await refreshMatchState();
+    }
+
+    async function setStage(stage) {
+      if (!currentFounder || !currentMatch) return;
+      const res = await fetch('/api/pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          founder_id: currentFounder.id,
+          investor_id: currentMatch.investor_id,
+          stage,
+          score: currentMatch.score
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showAgent('Error', typeof err.detail === 'string' ? err.detail : 'Failed to update stage');
+        return;
+      }
+      const data = await res.json();
+      showAgent('Pipeline', `Stage → ${STAGE_LABEL[data.current_stage] || data.current_stage}`);
+      await refreshMatchState();
+    }
+
+    async function runResearch() {
+      if (!currentFounder || !currentMatch) return;
+      showAgent(`Research · ${currentMatch.investor_name}`, null, true);
+      const res = await fetch('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ founder_id: currentFounder.id, investor_id: currentMatch.investor_id })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showAgent('Research failed', data.detail || 'Request failed');
+        return;
+      }
+      showAgent(`Research · ${currentMatch.investor_name}`, data.brief || 'Empty response');
+    }
+
+    async function runOutreach() {
+      if (!currentFounder || !currentMatch) return;
+      showAgent(`Outreach · ${currentMatch.investor_name}`, null, true);
+      document.getElementById('btn-send-draft').classList.add('hidden');
+      const res = await fetch('/api/outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ founder_id: currentFounder.id, investor_id: currentMatch.investor_id })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showAgent('Outreach failed', data.detail || 'Request failed');
+        return;
+      }
+      lastDraft = data.email || '';
+      showAgent(`Outreach · ${currentMatch.investor_name}`, lastDraft);
+      document.getElementById('btn-send-draft').classList.remove('hidden');
+    }
+
+    async function sendDraftToThread() {
+      if (!lastDraft) return;
+      setComposeMode('outreach');
+      document.getElementById('compose-body').value = lastDraft;
+      await sendCompose();
+      document.getElementById('btn-send-draft').classList.add('hidden');
+      showAgent('Sent', 'Outreach saved to thread. Stage → Outreach sent.');
+    }
+
+    function showAgent(title, content, loading = false) {
+      document.getElementById('agent-panel').classList.remove('hidden');
+      document.getElementById('agent-title').textContent = title;
+      const el = document.getElementById('agent-content');
+      if (loading) {
+        el.innerHTML = '<span class="spinner"></span> <span class="text-xs ml-1" style="color: var(--muted)">Searching internal + web…</span>';
+        return;
+      }
+      const raw = content || '';
+      el.innerHTML = esc(raw)
+        .replace(/^## (.+)$/gm, '<div class="text-xs font-semibold text-violet-300 mt-3 mb-1">$1</div>')
+        .replace(/\\n/g, '<br>');
+    }
+
+    function closeAgent() {
+      document.getElementById('agent-panel').classList.add('hidden');
+      document.getElementById('btn-send-draft').classList.add('hidden');
+    }
+
+    loadFounders();
+  </script>
+</body>
+</html>
