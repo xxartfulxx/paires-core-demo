@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -13,14 +14,23 @@ from app.matching.ranker import rank_investors_for_founder
 from app.models import Founder, Investor, MatchMessage, MatchPipeline
 from app.schemas import AgentRequest, MatchResult, MessageCreate, MessageRead, PipelineUpdate
 
-app = FastAPI(title="Paires Core Demo", version="0.5.0")
+app = FastAPI(title="Paires Core Demo", version="0.5.1")
+
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "https://paires-core-demo-production.up.railway.app",
+    ).split(",")
+    if o.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 VALID_STAGES = {"matched", "outreach_sent", "replied", "meeting_booked", "not_a_fit"}
@@ -119,7 +129,6 @@ async def update_pipeline(payload: PipelineUpdate, db: AsyncSession = Depends(ge
     if payload.score is not None and pipe.score_at_match is None:
         pipe.score_at_match = payload.score
 
-    # Meeting fields
     if payload.stage == "meeting_booked":
         if payload.meeting_at is not None:
             pipe.meeting_at = payload.meeting_at
@@ -130,7 +139,6 @@ async def update_pipeline(payload: PipelineUpdate, db: AsyncSession = Depends(ge
         if payload.follow_up_expected is not None:
             pipe.follow_up_expected = payload.follow_up_expected
 
-        # System line in the thread so history is clear
         when = pipe.meeting_at.strftime("%a %d %b %Y %H:%M") if pipe.meeting_at else "time TBC"
         mtype = (pipe.meeting_type or "intro").replace("_", " ")
         follow = " · Follow-up expected" if pipe.follow_up_expected else ""
@@ -146,7 +154,6 @@ async def update_pipeline(payload: PipelineUpdate, db: AsyncSession = Depends(ge
             )
         )
     elif payload.stage == "not_a_fit":
-        # Clear meeting if marked not a fit
         pipe.meeting_at = None
         pipe.meeting_type = None
         pipe.meeting_notes = None
